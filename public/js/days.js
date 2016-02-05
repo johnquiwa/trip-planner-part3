@@ -5,8 +5,8 @@ var daysModule = (function(){
 
   // state (info that should be maintained)
 
-  var days = [],
-      currentDay;
+  var days = []
+  window.currentDay = this;
 
   // jQuery selections
 
@@ -47,21 +47,78 @@ var daysModule = (function(){
   Day.prototype.switchTo = function() {
     // day button panel changes
     currentDay.$button.removeClass('current-day');
-
+    console.log('before', currentDay);
     // itinerary clear
     function erase (attraction) { attraction.eraseItineraryItem(); }
+
+    if(currentDay.DB){
+      if (currentDay.DB.hotel) erase(currentDay.DB.hotel);
+      console.log('read me', currentDay);
+      if(currentDay.DB.restaurants) currentDay.DB.restaurants.forEach(erase);
+      if(currentDay.DB.activities) currentDay.DB.activities.forEach(erase);
+        console.log('after erase', currentDay);
+    }
+    console.log('after erase', currentDay);
     if (currentDay.hotel) erase(currentDay.hotel);
     currentDay.restaurants.forEach(erase);
     currentDay.activities.forEach(erase);
-
     // front-end model change
     currentDay = this;
+    console.log('current this',currentDay);
 
     // day button panel changes
     currentDay.$button.addClass('current-day');
     $dayTitle.text('Day ' + currentDay.number);
 
+    ///AJAX REQUEST
+    var $dayValueTest = $("#day-title span").text().split(" ")[1];
+
+    $.ajax({
+      method: "GET",
+      url: "api/days/" + $dayValueTest,
+      data: {number: $dayValueTest},
+      success: function (data) {
+        var thisNewDay = {}
+        // DRAW SOME SWEET SHIT!
+        thisNewDay.dayNumber = $dayValueTest;
+        if(data.hotel[0]){
+          data.hotel[0].type = 'hotel';
+          thisNewDay.hotel = attractionsModule.create(data.hotel[0]);
+        }
+        // draw(thisNewDay.hotel);
+        if(data.restaurants.length){
+          thisNewDay.restaurants = data.restaurants.map(function (element) {
+            element.type = "restaurant";
+            var attraction = attractionsModule.create(element)
+    
+            // draw(attraction);
+            return attraction;
+          });
+        }
+        if(data.activities.length){
+          thisNewDay.activities = data.activities.map(function (element) {
+            element.type = "activity";
+            var attraction = attractionsModule.create(element)
+            // draw(attraction);
+            return attraction;
+          });;
+        }
+        console.log(currentDay);
+        currentDay.DB = thisNewDay;
+      },
+      error: function (error) {
+        console.log("It didn't work!" + error)
+      }
+    })
+    ///
     // itinerary repopulation
+    function thisNewDraw (object) {
+      // turn that object into somethins that attraction can use
+    if (object.hotel) draw(object.hotel);
+    object.restaurants.forEach(draw);
+    object.activities.forEach(draw);
+    }
+
     function draw (attraction) { attraction.drawItineraryItem(); }
     if (currentDay.hotel) draw(currentDay.hotel);
     currentDay.restaurants.forEach(draw);
@@ -77,6 +134,19 @@ var daysModule = (function(){
     var newDay = new Day();
     if (days.length === 1) currentDay = newDay;
     newDay.switchTo();
+
+    $.ajax({
+        method: 'POST',
+        url: '/api/days',
+        data: {number: currentDay.number},
+        success: function (responseData) {
+          console.log(responseData)
+        },
+        error: function (errorObj) {
+          console.log("error!")
+        }
+    });
+
   }
 
   function deleteCurrentDay () {
@@ -86,7 +156,9 @@ var daysModule = (function(){
   // jQuery event binding
 
   $(function(){
-    $addButton.on('click', addDay);
+    $addButton.on('click', function () {
+      addDay();
+    });
     $removeDay.on('click', deleteCurrentDay);
   })
 
@@ -95,17 +167,36 @@ var daysModule = (function(){
   var methods = {
 
     load: function(){
-      $(addDay);
+      $.get('/api/days', function(data){
+        if(data.length){
+          data.forEach(function(day){
+            // draw all buttons/ attractions
+            // populate the current day that is displayed
+            new Day();
+          });
+          currentDay = days[0];
+          days[0].switchTo();
+        } else {
+        $(addDay);
+        }
+      }).fail(function (error) {
+        console.log(error)
+      }) 
     },
 
     addAttraction: function(attractionData){
       var attraction = attractionsModule.create(attractionData);
+      console.log(attractionData);
       switch (attraction.type) {
         case 'hotel': currentDay.hotel = attraction; break;
         case 'restaurant': currentDay.restaurants.push(attraction); break;
         case 'activity': currentDay.activities.push(attraction); break;
         default: console.error('bad type:', attraction);
       }
+    },
+
+    getAttraction: function(attractionData){
+      return attractionsModule.create(attractionData);
     },
 
     getCurrentDay: function(){

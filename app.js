@@ -23,7 +23,8 @@ app.use('/jquery', express.static(__dirname + '/node_modules/jquery/dist'));
 app.use(express.static(__dirname + '/public'));
 
 // serve dynamic routes
-app.use(require('./routes'));
+app.use('/', require('./routes/index'));
+app.use('/api', require('./routes/api/days'));
 
 // failed to catch req above means 404, forward to error handler
 app.use(function(req, res, next) {

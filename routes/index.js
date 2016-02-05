@@ -5,8 +5,11 @@ var Hotel = models.Hotel;
 var Restaurant = models.Restaurant;
 var Activity = models.Activity;
 var Promise = require('bluebird');
+var Days = models.Days;
 
 router.get('/', function(req, res) {
+  Days.remove({});
+  
   Promise.all([
     Hotel.find(),
     Restaurant.find(),
